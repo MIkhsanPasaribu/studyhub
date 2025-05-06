@@ -1,9 +1,11 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Checkbox } from '@/components/ui/checkbox'
+import { supabase } from '@/lib/supabase'
 
 type TimerMode = {
   name: string
@@ -22,6 +24,35 @@ export default function PomodoroTimer() {
   const [isWorking, setIsWorking] = useState(true)
   const [isActive, setIsActive] = useState(false)
   const [time, setTime] = useState(activeMode.workTime * 60)
+  const [notificationEnabled, setNotificationEnabled] = useState(true)
+  const [doNotDisturbMode, setDoNotDisturbMode] = useState(false)
+  const audioRef = useRef<HTMLAudioElement>(null)
+
+  // Fungsi untuk menyimpan sesi ke database
+  const savePomodoroSession = async (duration: number, isCompleted: boolean) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      const sessionData = {
+        user_id: user.id,
+        start_time: new Date(Date.now() - duration * 1000).toISOString(),
+        end_time: new Date().toISOString(),
+        duration: Math.floor(duration / 60), // Konversi detik ke menit
+        mode: activeMode.name,
+        is_completed: isCompleted,
+        category: 'Default' // Bisa ditambahkan dropdown untuk memilih kategori
+      }
+
+      const { error } = await supabase
+        .from('pomodoro_sessions')
+        .insert([sessionData])
+
+      if (error) throw error
+    } catch (error) {
+      console.error('Error saving pomodoro session:', error)
+    }
+  }
 
   useEffect(() => {
     let interval: NodeJS.Timeout | null = null
@@ -31,6 +62,23 @@ export default function PomodoroTimer() {
         setTime((prevTime) => prevTime - 1)
       }, 1000)
     } else if (isActive && time === 0) {
+      // Simpan sesi yang selesai
+      const duration = isWorking ? activeMode.workTime * 60 : activeMode.breakTime * 60
+      savePomodoroSession(duration, true)
+      
+      // Putar notifikasi audio jika diaktifkan
+      if (notificationEnabled && audioRef.current) {
+        audioRef.current.play()
+      }
+      
+      // Tampilkan notifikasi visual
+      if (notificationEnabled && 'Notification' in window && Notification.permission === 'granted') {
+        new Notification(isWorking ? 'Waktu istirahat!' : 'Waktu fokus!', {
+          body: isWorking ? `Selamat! Anda telah fokus selama ${activeMode.workTime} menit.` : `Istirahat ${activeMode.breakTime} menit selesai.`,
+          icon: '/favicon.ico'
+        })
+      }
+      
       // Switch between work and break
       setIsWorking(!isWorking)
       setTime(isWorking ? activeMode.breakTime * 60 : activeMode.workTime * 60)
@@ -39,7 +87,7 @@ export default function PomodoroTimer() {
     return () => {
       if (interval) clearInterval(interval)
     }
-  }, [isActive, time, isWorking, activeMode])
+  }, [isActive, time, isWorking, activeMode, notificationEnabled])
 
   const formatTime = (seconds: number): string => {
     const mins = Math.floor(seconds / 60)
@@ -61,6 +109,13 @@ export default function PomodoroTimer() {
     setIsActive(false)
     setIsWorking(true)
     setTime(activeMode.workTime * 60)
+  }
+
+  // Fungsi untuk meminta izin notifikasi
+  const requestNotificationPermission = () => {
+    if ('Notification' in window) {
+      Notification.requestPermission()
+    }
   }
 
   return (
@@ -96,87 +151,17 @@ export default function PomodoroTimer() {
                     Reset
                   </Button>
                 </div>
-                // Tambahkan state untuk notifikasi dan mode tidak terganggu
-                const [notificationEnabled, setNotificationEnabled] = useState(true)
-                const [doNotDisturbMode, setDoNotDisturbMode] = useState(false)
-                const audioRef = useRef<HTMLAudioElement>(null)
                 
-                // Tambahkan fungsi untuk menyimpan sesi ke database
-                const savePomodoroSession = async (duration: number, isCompleted: boolean) => {
-                  try {
-                    const { data: { user } } = await supabase.auth.getUser()
-                    if (!user) return
-                
-                    const sessionData = {
-                      user_id: user.id,
-                      start_time: new Date(Date.now() - duration * 1000).toISOString(),
-                      end_time: new Date().toISOString(),
-                      duration: Math.floor(duration / 60), // Konversi detik ke menit
-                      mode: activeMode.name,
-                      is_completed: isCompleted,
-                      category: 'Default' // Bisa ditambahkan dropdown untuk memilih kategori
-                    }
-                
-                    const { error } = await supabase
-                      .from('pomodoro_sessions')
-                      .insert([sessionData])
-                
-                    if (error) throw error
-                  } catch (error) {
-                    console.error('Error saving pomodoro session:', error)
-                  }
-                }
-                
-                // Modifikasi useEffect untuk menangani notifikasi dan penyimpanan sesi
-                useEffect(() => {
-                  let interval: NodeJS.Timeout | null = null
-                
-                  if (isActive && time > 0) {
-                    interval = setInterval(() => {
-                      setTime((prevTime) => prevTime - 1)
-                    }, 1000)
-                  } else if (isActive && time === 0) {
-                    // Simpan sesi yang selesai
-                    const duration = isWorking ? activeMode.workTime * 60 : activeMode.breakTime * 60
-                    savePomodoroSession(duration, true)
-                    
-                    // Putar notifikasi audio jika diaktifkan
-                    if (notificationEnabled && audioRef.current) {
-                      audioRef.current.play()
-                    }
-                    
-                    // Tampilkan notifikasi visual
-                    if (notificationEnabled && 'Notification' in window && Notification.permission === 'granted') {
-                      new Notification(isWorking ? 'Waktu istirahat!' : 'Waktu fokus!', {
-                        body: isWorking ? `Selamat! Anda telah fokus selama ${activeMode.workTime} menit.` : `Istirahat ${activeMode.breakTime} menit selesai.`,
-                        icon: '/favicon.ico'
-                      })
-                    }
-                    
-                    // Switch between work and break
-                    setIsWorking(!isWorking)
-                    setTime(isWorking ? activeMode.breakTime * 60 : activeMode.workTime * 60)
-                  }
-                
-                  return () => {
-                    if (interval) clearInterval(interval)
-                  }
-                }, [isActive, time, isWorking, activeMode, notificationEnabled])
-                
-                // Tambahkan fungsi untuk meminta izin notifikasi
-                const requestNotificationPermission = () => {
-                  if ('Notification' in window) {
-                    Notification.requestPermission()
-                  }
-                }
-                
-                // Tambahkan di bagian return untuk UI notifikasi dan mode tidak terganggu
+                {/* UI untuk notifikasi dan mode tidak terganggu */}
                 <div className="flex justify-between items-center mt-4">
                   <div className="flex items-center space-x-2">
                     <Checkbox 
                       id="notification" 
                       checked={notificationEnabled}
-                      onCheckedChange={() => setNotificationEnabled(!notificationEnabled)}
+                      onCheckedChange={() => {
+                        setNotificationEnabled(!notificationEnabled)
+                        if (!notificationEnabled) requestNotificationPermission()
+                      }}
                     />
                     <label htmlFor="notification" className="text-sm">Notifikasi</label>
                   </div>

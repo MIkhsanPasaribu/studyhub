@@ -3,8 +3,10 @@
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { supabase } from '@/lib/supabase'
 
 // Perbarui tipe Task untuk mendukung fitur tambahan
@@ -21,79 +23,19 @@ type Task = {
   parent_id?: string
 }
 
-// Tambahkan state untuk fitur tambahan
-const [taskDescription, setTaskDescription] = useState('')
-const [taskDueDate, setTaskDueDate] = useState('')
-const [taskPriority, setTaskPriority] = useState<'low' | 'medium' | 'high'>('medium')
-const [taskCategory, setTaskCategory] = useState('')
-const [searchQuery, setSearchQuery] = useState('')
-const [filterCompleted, setFilterCompleted] = useState<boolean | null>(null)
-const [filterPriority, setFilterPriority] = useState<'low' | 'medium' | 'high' | null>(null)
-
-// Modifikasi addTask untuk mendukung fitur tambahan
-const addTask = async (e: React.FormEvent) => {
-  e.preventDefault()
-  if (!newTaskTitle.trim()) return
-
-  try {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
-
-    const newTask = {
-      title: newTaskTitle,
-      description: taskDescription,
-      completed: false,
-      due_date: taskDueDate || null,
-      priority: taskPriority,
-      category: taskCategory || null,
-      user_id: user.id,
-    }
-
-    const { data, error } = await supabase
-      .from('tasks')
-      .insert([newTask])
-      .select()
-
-    if (error) throw error
-    if (data) {
-      setTasks([data[0], ...tasks])
-      resetForm()
-    }
-  } catch (error) {
-    console.error('Error adding task:', error)
-  }
-}
-
-// Fungsi untuk reset form
-const resetForm = () => {
-  setNewTaskTitle('')
-  setTaskDescription('')
-  setTaskDueDate('')
-  setTaskPriority('medium')
-  setTaskCategory('')
-}
-
-// Fungsi untuk filter dan pencarian
-const filteredTasks = tasks.filter(task => {
-  // Filter berdasarkan status penyelesaian
-  if (filterCompleted !== null && task.completed !== filterCompleted) return false
-  
-  // Filter berdasarkan prioritas
-  if (filterPriority !== null && task.priority !== filterPriority) return false
-  
-  // Pencarian berdasarkan judul atau deskripsi
-  if (searchQuery && !task.title.toLowerCase().includes(searchQuery.toLowerCase()) && 
-      !task.description?.toLowerCase().includes(searchQuery.toLowerCase())) {
-    return false
-  }
-  
-  return true
-})
-
 export default function TaskManager() {
   const [tasks, setTasks] = useState<Task[]>([])
   const [newTaskTitle, setNewTaskTitle] = useState('')
   const [loading, setLoading] = useState(true)
+  
+  // Tambahkan state untuk fitur tambahan
+  const [taskDescription, setTaskDescription] = useState('')
+  const [taskDueDate, setTaskDueDate] = useState('')
+  const [taskPriority, setTaskPriority] = useState<'low' | 'medium' | 'high'>('medium')
+  const [taskCategory, setTaskCategory] = useState('')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [filterCompleted, setFilterCompleted] = useState<boolean | null>(null)
+  const [filterPriority, setFilterPriority] = useState<'low' | 'medium' | 'high' | null>(null)
 
   useEffect(() => {
     fetchTasks()
@@ -117,6 +59,49 @@ export default function TaskManager() {
     } finally {
       setLoading(false)
     }
+  }
+
+  // Modifikasi addTask untuk mendukung fitur tambahan
+  const addTask = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!newTaskTitle.trim()) return
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      const newTask = {
+        title: newTaskTitle,
+        description: taskDescription,
+        completed: false,
+        due_date: taskDueDate || null,
+        priority: taskPriority,
+        category: taskCategory || null,
+        user_id: user.id,
+      }
+
+      const { data, error } = await supabase
+        .from('tasks')
+        .insert([newTask])
+        .select()
+
+      if (error) throw error
+      if (data) {
+        setTasks([data[0], ...tasks])
+        resetForm()
+      }
+    } catch (error) {
+      console.error('Error adding task:', error)
+    }
+  }
+
+  // Fungsi untuk reset form
+  const resetForm = () => {
+    setNewTaskTitle('')
+    setTaskDescription('')
+    setTaskDueDate('')
+    setTaskPriority('medium')
+    setTaskCategory('')
   }
 
   const toggleTaskCompletion = async (taskId: string, completed: boolean) => {
@@ -150,6 +135,23 @@ export default function TaskManager() {
       console.error('Error deleting task:', error)
     }
   }
+
+  // Fungsi untuk filter dan pencarian
+  const filteredTasks = tasks.filter(task => {
+    // Filter berdasarkan status penyelesaian
+    if (filterCompleted !== null && task.completed !== filterCompleted) return false
+    
+    // Filter berdasarkan prioritas
+    if (filterPriority !== null && task.priority !== filterPriority) return false
+    
+    // Pencarian berdasarkan judul atau deskripsi
+    if (searchQuery && !task.title.toLowerCase().includes(searchQuery.toLowerCase()) && 
+        !task.description?.toLowerCase().includes(searchQuery.toLowerCase())) {
+      return false
+    }
+    
+    return true
+  })
 
   // Perbarui UI untuk mendukung fitur tambahan
   return (

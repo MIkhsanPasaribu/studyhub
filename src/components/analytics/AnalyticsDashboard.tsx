@@ -1,6 +1,8 @@
+/* eslint-disable react-hooks/exhaustive-deps */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
@@ -69,11 +71,7 @@ export default function AnalyticsDashboard() {
   const [completionRate, setCompletionRate] = useState(0)
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    fetchAnalyticsData()
-  }, [timeRange])
-
-  const fetchAnalyticsData = async () => {
+  const fetchAnalyticsData = useCallback(async () => {
     try {
       setLoading(true)
       const { data: { user } } = await supabase.auth.getUser()
@@ -81,7 +79,7 @@ export default function AnalyticsDashboard() {
 
       // Menentukan rentang tanggal berdasarkan timeRange
       const now = new Date()
-      let startDate = new Date()
+      const startDate = new Date()
       
       if (timeRange === 'daily') {
         startDate.setHours(0, 0, 0, 0)
@@ -112,16 +110,20 @@ export default function AnalyticsDashboard() {
       // Proses data untuk analitik
       if (sessionsData) {
         setPomodoroSessions(sessionsData)
-        processAnalyticsData(sessionsData, tasksData || [])
+        processAnalyticsData(sessionsData, tasksData || [], startDate, now)
       }
     } catch (error) {
       console.error('Error fetching analytics data:', error)
     } finally {
       setLoading(false)
     }
-  }
+  }, [timeRange])
 
-  const processAnalyticsData = (sessions: PomodoroSession[], tasks: any[]) => {
+  useEffect(() => {
+    fetchAnalyticsData()
+  }, [fetchAnalyticsData])
+
+  const processAnalyticsData = (sessions: PomodoroSession[], tasks: any[], startDate: Date, now: Date) => {
     // Hitung total waktu fokus
     const totalMinutes = sessions.reduce((total, session) => {
       return total + (session.duration || 0)

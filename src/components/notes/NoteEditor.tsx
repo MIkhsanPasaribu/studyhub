@@ -259,7 +259,7 @@ export default function NoteEditor() {
                     <Input 
                       placeholder="Cari catatan..."
                       className="mb-4"
-                      onChange={(e) => {
+                      onChange={() => {
                         // Implementasi pencarian sederhana
                         // Untuk implementasi lengkap, tambahkan state dan logika pencarian
                       }}

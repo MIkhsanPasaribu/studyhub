@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { supabase } from '@/lib/supabase'
 
 type Event = {
@@ -31,7 +31,8 @@ export default function Calendar() {
   const [calendarDays, setCalendarDays] = useState<CalendarDay[]>([])
   const [loading, setLoading] = useState(true)
   const [showEventForm, setShowEventForm] = useState(false)
-  const [selectedDate, setSelectedDate] = useState<Date | null>(null)
+  // Remove this line
+  // const [selectedDate, setSelectedDate] = useState<Date | null>(null)
   
   // Form state
   const [eventTitle, setEventTitle] = useState('')
@@ -149,8 +150,13 @@ export default function Calendar() {
   }
 
   const handleDateClick = (day: CalendarDay) => {
-    setSelectedDate(day.date)
     resetEventForm()
+    
+    // Set the selected date as the default start/end date
+    const dateString = day.date.toISOString().split('T')[0]
+    setEventStartDate(dateString)
+    setEventEndDate(dateString)
+    
     setShowEventForm(true)
   }
 
